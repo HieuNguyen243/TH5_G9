@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../models/student_model.dart';
+import '../../providers/student_provider.dart';
 import '../../core/widgets/custom_text_field.dart';
 import '../../core/widgets/custom_button.dart';
 
-class StudentFormScreen extends StatefulWidget {
+class StudentFormScreen extends ConsumerStatefulWidget {
   final StudentModel? student;
 
   const StudentFormScreen({super.key, this.student});
 
   @override
-  State<StudentFormScreen> createState() => _StudentFormScreenState();
+  ConsumerState<StudentFormScreen> createState() => _StudentFormScreenState();
 }
 
-class _StudentFormScreenState extends State<StudentFormScreen> {
+class _StudentFormScreenState extends ConsumerState<StudentFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _fullNameController;
   late TextEditingController _studentCodeController;
   late TextEditingController _majorIdController;
+  late TextEditingController _gpaController;
   
   bool get isEditing => widget.student != null;
 
@@ -26,6 +30,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
     _fullNameController = TextEditingController(text: widget.student?.fullName ?? '');
     _studentCodeController = TextEditingController(text: widget.student?.studentCode ?? '');
     _majorIdController = TextEditingController(text: widget.student?.majorId ?? '');
+    _gpaController = TextEditingController(text: widget.student?.gpa?.toString() ?? '');
   }
 
   @override
@@ -33,31 +38,40 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
     _fullNameController.dispose();
     _studentCodeController.dispose();
     _majorIdController.dispose();
+    _gpaController.dispose();
     super.dispose();
   }
 
   void _saveStudent() {
     if (_formKey.currentState!.validate()) {
-      // In a full implementation, you'd use a Provider to save to Supabase here.
-      // E.g., ref.read(studentProvider.notifier).upsertStudent(newStudent);
       
       final newStudent = StudentModel(
         id: widget.student?.id,
         studentCode: _studentCodeController.text.trim(),
         fullName: _fullNameController.text.trim(),
         majorId: _majorIdController.text.trim(),
+        gpa: double.tryParse(_gpaController.text.trim()),
         avatarUrl: widget.student?.avatarUrl,
       );
 
-      // Go back to previous screen, optionally returning the new/updated student
-      Navigator.of(context).pop(newStudent);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isEditing ? 'Đã cập nhật sinh viên!' : 'Đã thêm sinh viên mới!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      // Call the appropriate provider method
+      if (isEditing) {
+        ref.read(studentListProvider.notifier).updateStudent(newStudent);
+      } else {
+        ref.read(studentListProvider.notifier).addStudent(newStudent, null);
+      }
+
+      // Go back to previous screen
+      if (mounted) {
+        context.pop();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isEditing ? 'Đã cập nhật sinh viên!' : 'Đã thêm sinh viên mới!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     }
   }
 
@@ -128,6 +142,26 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Vui lòng nhập mã sinh viên';
+                  }
+                  final codeRegex = RegExp(r'^[a-zA-Z0-9_]+$');
+                  if (!codeRegex.hasMatch(value.trim())) {
+                    return 'Mã SV chỉ chứa chữ, số và dấu gạch dưới';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              CustomTextField(
+                controller: _gpaController,
+                label: 'Điểm GPA',
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Vui lòng nhập điểm GPA';
+                  }
+                  final gpa = double.tryParse(value.trim());
+                  if (gpa == null || gpa < 0.0 || gpa > 4.0) {
+                    return 'GPA phải là số từ 0.0 đến 4.0';
                   }
                   return null;
                 },

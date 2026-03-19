@@ -104,7 +104,7 @@ class ProfileDetailScreen extends StatelessWidget {
                       context,
                       icon: Icons.grade_outlined,
                       label: 'Điểm trung bình',
-                      value: 'Chưa cập nhật', // Can map to real field later
+                      value: student.gpa?.toStringAsFixed(2) ?? 'Chưa cập nhật',
                     ),
                   ],
                 ),
