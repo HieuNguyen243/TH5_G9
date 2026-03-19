@@ -25,7 +25,7 @@ class StudentListTile extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         leading: CircleAvatar(
           radius: 28,
-          backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
           backgroundImage: student.avatarUrl != null && student.avatarUrl!.isNotEmpty
               ? NetworkImage(student.avatarUrl!)
               : null,

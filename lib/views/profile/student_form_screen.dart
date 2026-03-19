@@ -3,13 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../models/student_model.dart';
 import '../../providers/student_provider.dart';
 import '../../core/widgets/custom_text_field.dart';
 import '../../core/widgets/custom_button.dart';
-import '../../services/student_service.dart';
 
 class StudentFormScreen extends ConsumerStatefulWidget {
   final StudentModel? student;
@@ -259,7 +257,7 @@ class _StudentFormScreenState extends ConsumerState<StudentFormScreen> {
               // Faculty Dropdown
               DropdownButtonFormField<String>(
                 key: const ValueKey('faculty_dropdown'),
-                value: _selectedFacultyId,
+                initialValue: _selectedFacultyId,
                 decoration: const InputDecoration(labelText: 'Khoa', border: OutlineInputBorder()),
                 items: _faculties.map((f) => DropdownMenuItem(value: f['id'].toString(), child: Text(f['faculty_name']))).toList(),
                 onChanged: _onFacultyChanged,
@@ -270,7 +268,7 @@ class _StudentFormScreenState extends ConsumerState<StudentFormScreen> {
               // Major Dropdown
               DropdownButtonFormField<String>(
                 key: const ValueKey('major_dropdown'),
-                value: _selectedMajorId,
+                initialValue: _selectedMajorId,
                 decoration: const InputDecoration(labelText: 'Ngành', border: OutlineInputBorder()),
                 items: _majors.map((m) => DropdownMenuItem(value: m['id'].toString(), child: Text(m['major_name']))).toList(),
                 onChanged: _onMajorChanged,
@@ -281,7 +279,7 @@ class _StudentFormScreenState extends ConsumerState<StudentFormScreen> {
               // Class Dropdown
               DropdownButtonFormField<String>(
                 key: const ValueKey('class_dropdown'),
-                value: _selectedClassId,
+                initialValue: _selectedClassId,
                 decoration: const InputDecoration(labelText: 'Lớp', border: OutlineInputBorder()),
                 items: _classes.map((c) => DropdownMenuItem(value: c['id'].toString(), child: Text(c['class_name']))).toList(),
                 onChanged: (val) => setState(() => _selectedClassId = val),
@@ -317,7 +315,7 @@ class _StudentFormScreenState extends ConsumerState<StudentFormScreen> {
               const SizedBox(height: 16),
 
               DropdownButtonFormField<String>(
-                value: _selectedAcademicStatus,
+                initialValue: _selectedAcademicStatus,
                 decoration: const InputDecoration(labelText: 'Tình trạng học tập', border: OutlineInputBorder()),
                 items: const [
                   DropdownMenuItem(value: 'Đang học', child: Text('Đang học')),
