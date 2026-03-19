@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'dart:async';
 import '../../models/student_model.dart';
+import '../../models/faculty_model.dart';
+import '../../models/major_model.dart';
+import '../../models/class_model.dart';
 import '../../providers/student_provider.dart';
 import '../../widgets/student_list_tile.dart';
 
 class DirectoryScreen extends ConsumerStatefulWidget {
-  const DirectoryScreen({super.key});
+  final Map<String, dynamic>? filterParams;
+
+  const DirectoryScreen({super.key, this.filterParams});
 
   @override
   ConsumerState<DirectoryScreen> createState() => _DirectoryScreenState();
@@ -15,259 +19,169 @@ class DirectoryScreen extends ConsumerStatefulWidget {
 
 class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
   final TextEditingController _searchController = TextEditingController();
-  Timer? _searchDebounceTimer;
 
-  // Filter states
-  String? _selectedMajor;
-  String _selectedGpaOption = 'all'; // 'all', 'gte3.2', 'lt3.2'
+  // 1. Quản lý Trạng thái cấp bậc (Hierarchy State)
+  FacultyModel? _selectedFaculty;
+  MajorModel? _selectedMajor;
+  ClassModel? _selectedClass;
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_onSearchChanged);
+    _searchController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _searchDebounceTimer?.cancel();
     super.dispose();
   }
 
-  /// Debounced search handler (500ms delay)
-  void _onSearchChanged() {
-    _searchDebounceTimer?.cancel();
-    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
-      setState(() {
-        // Trigger rebuild with filtered data
-      });
+  // --- HELPER METHODS ĐỂ TRÍCH XUẤT DỮ LIỆU ---
+
+  List<FacultyModel> _getUniqueFaculties(List<StudentModel> students) {
+    final Map<String, FacultyModel> faculties = {};
+    for (var s in students) {
+      final faculty = s.studentClass?.major?.faculty;
+      if (faculty != null) faculties[faculty.id] = faculty;
+    }
+    final list = faculties.values.toList();
+    list.sort((a, b) => a.facultyName.compareTo(b.facultyName));
+    return list;
+  }
+
+  List<MajorModel> _getMajorsForFaculty(List<StudentModel> students, String facultyId) {
+    final Map<String, MajorModel> majors = {};
+    for (var s in students) {
+      final major = s.studentClass?.major;
+      if (major != null && major.facultyId == facultyId) {
+        majors[major.id] = major;
+      }
+    }
+    final list = majors.values.toList();
+    list.sort((a, b) => a.majorName.compareTo(b.majorName));
+    return list;
+  }
+
+  List<ClassModel> _getClassesForMajor(List<StudentModel> students, String majorId) {
+    final Map<String, ClassModel> classes = {};
+    for (var s in students) {
+      final sClass = s.studentClass;
+      if (sClass != null && sClass.majorId == majorId) {
+        classes[sClass.id] = sClass;
+      }
+    }
+    final list = classes.values.toList();
+    list.sort((a, b) => a.className.compareTo(b.className));
+    return list;
+  }
+
+  List<StudentModel> _getStudentsForClass(List<StudentModel> students, String classId) {
+    final list = students.where((s) => s.classId == classId).toList();
+    list.sort((a, b) => a.fullName.compareTo(b.fullName));
+    return list;
+  }
+
+  // --- LOGIC ĐIỀU HƯỚNG NGƯỢC ---
+  void _goBack() {
+    setState(() {
+      if (_selectedClass != null) {
+        _selectedClass = null;
+      } else if (_selectedMajor != null) {
+        _selectedMajor = null;
+      } else if (_selectedFaculty != null) {
+        _selectedFaculty = null;
+      }
     });
   }
 
-  /// Apply search and filter logic
-  List<StudentModel> _applyFilters(List<StudentModel> allStudents) {
-    return allStudents.where((student) {
-      // Search filter - name and student code
-      final searchQuery = _searchController.text.toLowerCase();
-      final matchesSearch = searchQuery.isEmpty ||
-          student.fullName.toLowerCase().contains(searchQuery) ||
-          student.studentCode.toLowerCase().contains(searchQuery);
+  // --- UI COMPONENTS ---
 
-      if (!matchesSearch) return false;
+  Widget _buildBreadcrumbs() {
+    if (_selectedFaculty == null) return const SizedBox.shrink();
 
-      // Major filter
-      if (_selectedMajor != null && student.major?.majorName != _selectedMajor) {
-        return false;
-      }
-
-      // GPA filter (placeholder - StudentModel doesn't have GPA field)
-      // In a real scenario, you'd use student.gpa
-      // For now, we'll skip GPA filtering since the model doesn't have it
-      // Uncomment below when GPA field is added to StudentModel
-      /*
-      if (_selectedGpaOption == 'gte3.2' && (student.gpa ?? 0) < 3.2) {
-        return false;
-      }
-      if (_selectedGpaOption == 'lt3.2' && (student.gpa ?? 0) >= 3.2) {
-        return false;
-      }
-      */
-
-      return true;
-    }).toList();
-  }
-
-  /// Get unique majors from student list
-  List<String> _getMajorsList(List<StudentModel> students) {
-    final majorSet = <String>{};
-    for (var student in students) {
-      if (student.major?.majorName != null) {
-        majorSet.add(student.major!.majorName);
-      }
-    }
-    return majorSet.toList()..sort();
-  }
-
-  /// Show filter bottom sheet
-  void _showFilterBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.grey[100],
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios, size: 16),
+            onPressed: _goBack,
+            constraints: const BoxConstraints(),
+            padding: EdgeInsets.zero,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _breadcrumbItem("Gốc", () => setState(() {
+                        _selectedFaculty = null;
+                        _selectedMajor = null;
+                        _selectedClass = null;
+                      })),
+                  _breadcrumbSeparator(),
+                  _breadcrumbItem(_selectedFaculty!.facultyName, () => setState(() {
+                        _selectedMajor = null;
+                        _selectedClass = null;
+                      })),
+                  if (_selectedMajor != null) ...[
+                    _breadcrumbSeparator(),
+                    _breadcrumbItem(_selectedMajor!.majorName, () => setState(() {
+                          _selectedClass = null;
+                        })),
+                  ],
+                  if (_selectedClass != null) ...[
+                    _breadcrumbSeparator(),
+                    _breadcrumbItem(_selectedClass!.className, null),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
-      builder: (context) {
-        return Consumer(
-          builder: (context, ref, child) {
-            final studentListAsync = ref.watch(studentListProvider);
-            return StatefulBuilder(
-              builder: (context, setModalState) {
-                return DraggableScrollableSheet(
-                  expand: false,
-                  initialChildSize: 0.6,
-                  minChildSize: 0.4,
-                  maxChildSize: 0.9,
-                  builder: (context, scrollController) {
-                    return SingleChildScrollView(
-                      controller: scrollController,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Header
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Bộ lọc',
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                                IconButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  icon: const Icon(Icons.close),
-                                )
-                              ],
-                            ),
-                            const SizedBox(height: 16),
+    );
+  }
 
-                            // Major Filter
-                            Text(
-                              'Ngành học',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            studentListAsync.when(
-                              data: (students) {
-                                final majors = _getMajorsList(students);
-                                return Column(
-                                  children: [
-                                    // "All" option
-                                    RadioListTile<String?>(
-                                      title: const Text('Tất cả'),
-                                      value: null,
-                                      groupValue: _selectedMajor,
-                                      onChanged: (value) {
-                                        setModalState(() {
-                                          _selectedMajor = value;
-                                        });
-                                        setState(() {});
-                                      },
-                                    ),
-                                    // Major options
-                                    ...majors.map(
-                                      (major) => RadioListTile<String?>(
-                                        title: Text(major),
-                                        value: major,
-                                        groupValue: _selectedMajor,
-                                        onChanged: (value) {
-                                          setModalState(() {
-                                            _selectedMajor = value;
-                                          });
-                                          setState(() {});
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                              loading: () => const SizedBox(
-                                height: 100,
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              ),
-                              error: (error, stackTrace) => Text('Error: $error'),
-                            ),
-                            const SizedBox(height: 16),
+  Widget _breadcrumbItem(String text, VoidCallback? onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Text(
+        text,
+        style: TextStyle(
+          color: onTap != null ? Theme.of(context).primaryColor : Colors.grey[600],
+          fontWeight: onTap == null ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+    );
+  }
 
-                            // GPA Filter
-                            Text(
-                              'Điểm GPA',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Column(
-                              children: [
-                                RadioListTile<String>(
-                                  title: const Text('Tất cả'),
-                                  value: 'all',
-                                  groupValue: _selectedGpaOption,
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setModalState(() {
-                                        _selectedGpaOption = value;
-                                      });
-                                      setState(() {});
-                                    }
-                                  },
-                                ),
-                                RadioListTile<String>(
-                                  title: const Text('≥ 3.2'),
-                                  value: 'gte3.2',
-                                  groupValue: _selectedGpaOption,
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setModalState(() {
-                                        _selectedGpaOption = value;
-                                      });
-                                      setState(() {});
-                                    }
-                                  },
-                                ),
-                                RadioListTile<String>(
-                                  title: const Text('< 3.2'),
-                                  value: 'lt3.2',
-                                  groupValue: _selectedGpaOption,
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setModalState(() {
-                                        _selectedGpaOption = value;
-                                      });
-                                      setState(() {});
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
+  Widget _breadcrumbSeparator() =>
+      const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Icon(Icons.chevron_right, size: 16, color: Colors.grey));
 
-                            // Action Buttons
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () {
-                                      setModalState(() {
-                                        _selectedMajor = null;
-                                        _selectedGpaOption = 'all';
-                                      });
-                                      setState(() {});
-                                    },
-                                    child: const Text('Reset'),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('Áp dụng'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            );
-          },
-        );
-      },
+  Widget _buildFolderItem({
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color iconColor = Colors.blue,
+  }) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: ListTile(
+        leading: Icon(Icons.folder, color: iconColor, size: 40),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+        onTap: onTap,
+      ),
     );
   }
 
@@ -277,198 +191,121 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Student Directory'),
+        title: const Text('Thư mục Sinh viên'),
         centerTitle: true,
-        elevation: 0,
       ),
       body: Column(
         children: [
-          // Search and Filter Bar
+          // Search Bar
           Padding(
             padding: const EdgeInsets.all(12.0),
-            child: Row(
-              children: [
-                // Search TextField
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search by name or code...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {});
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                // Filter Button
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.tune),
-                    onPressed: () => _showFilterBottomSheet(context),
-                    tooltip: 'Filter',
-                  ),
-                ),
-              ],
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Tìm nhanh tên hoặc mã sinh viên...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: Colors.white,
+              ),
             ),
           ),
 
-          // Active Filters Display
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-            child: Wrap(
-              spacing: 8,
-              children: [
-                if (_selectedMajor != null)
-                  Chip(
-                    label: Text('Ngành: $_selectedMajor'),
-                    onDeleted: () {
-                      setState(() {
-                        _selectedMajor = null;
-                      });
-                    },
-                  ),
-                if (_selectedGpaOption != 'all')
-                  Chip(
-                    label: Text('GPA: $_selectedGpaOption'),
-                    onDeleted: () {
-                      setState(() {
-                        _selectedGpaOption = 'all';
-                      });
-                    },
-                  ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Student List
+          // Hierarchy View
           Expanded(
             child: studentListAsync.when(
-              data: (students) {
-                final filteredStudents = _applyFilters(students);
+              data: (allStudents) {
+                final query = _searchController.text.toLowerCase();
+                final dashboardFilter = widget.filterParams?['filter'];
 
-                if (filteredStudents.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.person_outline,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No students found',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Try adjusting your search or filters',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                      ],
+                if (query.isNotEmpty || (dashboardFilter != null && dashboardFilter != 'all')) {
+                  final filtered = allStudents.where((s) {
+                    final matchesSearch = s.fullName.toLowerCase().contains(query) || s.studentCode.toLowerCase().contains(query);
+                    if (dashboardFilter == 'excellent') return matchesSearch && (s.gpa ?? 0) >= 3.2;
+                    if (dashboardFilter == 'warned') return matchesSearch && ((s.gpa ?? 0) < 1.5 || s.academicStatus == 'Đình chỉ');
+                    return matchesSearch;
+                  }).toList();
+
+                  return ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) => StudentListTile(
+                      student: filtered[index],
+                      onTap: () => context.go('/directory/student-detail', extra: filtered[index]),
                     ),
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: filteredStudents.length,
-                  itemBuilder: (context, index) {
-                    final student = filteredStudents[index];
-                    return Dismissible(
-                      key: Key(student.id ?? student.studentCode),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 20.0),
-                        color: Colors.red,
-                        child: const Icon(Icons.delete, color: Colors.white),
-                      ),
-                      onDismissed: (direction) {
-                        // In a real app, call a Provider/Service method to delete
-                        // E.g., ref.read(studentProvider.notifier).deleteStudent(student.id!);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Đã xóa sinh viên ${student.fullName}'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      },
-                      child: StudentListTile(
-                        student: student,
-                        onTap: () {
-                          context.go('/directory/student-detail', extra: student);
-                        },
-                      ),
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              error: (error, stackTrace) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                return Column(
                   children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.red[400],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Failed to load students',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Error: $error',
-                      style: Theme.of(context).textTheme.bodySmall,
-                      textAlign: TextAlign.center,
+                    _buildBreadcrumbs(),
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        children: _buildCurrentLevelItems(allStudents),
+                      ),
                     ),
                   ],
-                ),
-              ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, s) => Center(child: Text('Lỗi: $e')),
             ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          context.go('/directory/student-form');
-        },
-        child: const Icon(Icons.add),
+        onPressed: () => context.go('/directory/student-form'),
+        backgroundColor: Theme.of(context).primaryColor,
+        child: const Icon(Icons.person_add, color: Colors.white),
       ),
     );
+  }
+
+  List<Widget> _buildCurrentLevelItems(List<StudentModel> allStudents) {
+    if (_selectedClass != null) {
+      final students = _getStudentsForClass(allStudents, _selectedClass!.id);
+      return students
+          .map((s) => StudentListTile(
+                student: s,
+                onTap: () => context.go('/directory/student-detail', extra: s),
+              ))
+          .toList();
+    }
+
+    if (_selectedMajor != null) {
+      final classes = _getClassesForMajor(allStudents, _selectedMajor!.id);
+      return classes.map((c) {
+        final count = allStudents.where((s) => s.classId == c.id).length;
+        return _buildFolderItem(
+          title: "Lớp: ${c.className}",
+          subtitle: "$count sinh viên",
+          iconColor: Colors.orangeAccent,
+          onTap: () => setState(() => _selectedClass = c),
+        );
+      }).toList();
+    }
+
+    if (_selectedFaculty != null) {
+      final majors = _getMajorsForFaculty(allStudents, _selectedFaculty!.id);
+      return majors.map((m) {
+        final classCount = _getClassesForMajor(allStudents, m.id).length;
+        return _buildFolderItem(
+          title: "Ngành: ${m.majorName}",
+          subtitle: "$classCount lớp hành chính",
+          iconColor: Colors.green,
+          onTap: () => setState(() => _selectedMajor = m),
+        );
+      }).toList();
+    }
+
+    final faculties = _getUniqueFaculties(allStudents);
+    return faculties.map((f) {
+      final majorCount = _getMajorsForFaculty(allStudents, f.id).length;
+      return _buildFolderItem(
+        title: "Khoa: ${f.facultyName}",
+        subtitle: "$majorCount ngành đào tạo",
+        onTap: () => setState(() => _selectedFaculty = f),
+      );
+    }).toList();
   }
 }

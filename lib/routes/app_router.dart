@@ -27,7 +27,11 @@ class AppRouter {
           ),
           GoRoute(
             path: directory,
-            builder: (context, state) => const DirectoryScreen(),
+            builder: (context, state) {
+              final extra = state.extra;
+              final filterParams = extra is Map<String, dynamic> ? extra : null;
+              return DirectoryScreen(filterParams: filterParams);
+            },
             routes: [
               GoRoute(
                 path: studentDetail,
@@ -48,13 +52,12 @@ class AppRouter {
           GoRoute(
             path: profile,
             builder: (context, state) {
-              // Placeholder for the main profile tab if needed. Using dummy data for now
               return ProfileDetailScreen(
                 student: StudentModel(
                   id: 'me',
-                  studentCode: 'TH5_243',
-                  fullName: 'Developer',
-                  majorId: 'IT',
+                  studentCode: 'ADMIN_01',
+                  fullName: 'Administrator',
+                  classId: 'ADMIN_CLASS', // Updated from majorId: 'IT'
                 ),
               );
             },

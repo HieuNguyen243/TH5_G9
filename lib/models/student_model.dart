@@ -1,22 +1,29 @@
-import 'major_model.dart';
+import 'class_model.dart';
+import 'package:intl/intl.dart';
 
 class StudentModel {
   final String? id;
   final String studentCode;
   final String fullName;
-  final String majorId;
+  final String classId; // Changed from majorId
   final String? avatarUrl;
   final double? gpa;
-  final MajorModel? major;
+  final String? hometown;
+  final DateTime? dateOfBirth;
+  final String? academicStatus;
+  final ClassModel? studentClass; // Changed from major
 
   StudentModel({
     this.id,
     required this.studentCode,
     required this.fullName,
-    required this.majorId,
+    required this.classId,
     this.avatarUrl,
     this.gpa,
-    this.major,
+    this.hometown,
+    this.dateOfBirth,
+    this.academicStatus,
+    this.studentClass,
   });
 
   factory StudentModel.fromJson(Map<String, dynamic> json) {
@@ -24,10 +31,13 @@ class StudentModel {
       id: json['id'],
       studentCode: json['student_code'],
       fullName: json['full_name'],
-      majorId: json['major_id'],
+      classId: json['class_id'],
       avatarUrl: json['avatar_url'],
       gpa: json['gpa'] != null ? double.tryParse(json['gpa'].toString()) : null,
-      major: json['majors'] != null ? MajorModel.fromJson(json['majors']) : null,
+      hometown: json['hometown'],
+      dateOfBirth: json['date_of_birth'] != null ? DateTime.tryParse(json['date_of_birth']) : null,
+      academicStatus: json['academic_status'],
+      studentClass: json['classes'] != null ? ClassModel.fromJson(json['classes']) : null,
     );
   }
 
@@ -36,29 +46,38 @@ class StudentModel {
       if (id != null) 'id': id,
       'student_code': studentCode,
       'full_name': fullName,
-      'major_id': majorId,
+      'class_id': classId,
       'avatar_url': avatarUrl,
       if (gpa != null) 'gpa': gpa,
+      'hometown': hometown,
+      'date_of_birth': dateOfBirth != null ? DateFormat('yyyy-MM-dd').format(dateOfBirth!) : null,
+      'academic_status': academicStatus,
     };
   }
-/// day la chu test
+
   StudentModel copyWith({
     String? id,
     String? studentCode,
     String? fullName,
-    String? majorId,
+    String? classId,
     String? avatarUrl,
     double? gpa,
-    MajorModel? major,
+    String? hometown,
+    DateTime? dateOfBirth,
+    String? academicStatus,
+    ClassModel? studentClass,
   }) {
     return StudentModel(
       id: id ?? this.id,
       studentCode: studentCode ?? this.studentCode,
       fullName: fullName ?? this.fullName,
-      majorId: majorId ?? this.majorId,
+      classId: classId ?? this.classId,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       gpa: gpa ?? this.gpa,
-      major: major ?? this.major,
+      hometown: hometown ?? this.hometown,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      academicStatus: academicStatus ?? this.academicStatus,
+      studentClass: studentClass ?? this.studentClass,
     );
   }
 }
