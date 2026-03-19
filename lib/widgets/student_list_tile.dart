@@ -26,10 +26,10 @@ class StudentListTile extends StatelessWidget {
         leading: CircleAvatar(
           radius: 28,
           backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-          backgroundImage: student.avatarUrl != null
+          backgroundImage: student.avatarUrl != null && student.avatarUrl!.isNotEmpty
               ? NetworkImage(student.avatarUrl!)
               : null,
-          child: student.avatarUrl == null
+          child: (student.avatarUrl == null || student.avatarUrl!.isEmpty)
               ? Text(
                   student.fullName.isNotEmpty
                       ? student.fullName[0].toUpperCase()
@@ -61,8 +61,9 @@ class StudentListTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
+            // Updated to use the new hierarchy
             Text(
-              'Ngành: ${student.major?.majorName ?? 'N/A'}',
+              'Lớp: ${student.studentClass?.className ?? 'N/A'} - Ngành: ${student.studentClass?.major?.majorName ?? 'N/A'}',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.secondary,
               ),
@@ -83,7 +84,7 @@ class StudentListTile extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              '3.8', // Note: GPA field not in StudentModel, using placeholder
+              student.gpa?.toStringAsFixed(1) ?? 'N/A',
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: theme.colorScheme.primary,

@@ -12,6 +12,10 @@ CREATE TABLE students (
     full_name VARCHAR(255) NOT NULL,
     major_id UUID REFERENCES majors(id),
     avatar_url TEXT,
+    gpa NUMERIC(3, 2) CHECK (gpa >= 0 AND gpa <= 10.0),
+    hometown VARCHAR(255),
+    date_of_birth DATE,
+    academic_status VARCHAR(50),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -32,9 +36,6 @@ CREATE TABLE grades (
 );
 
 -- 5. Storage Bucket: student_avatars
--- Lệnh tạo bucket qua SQL (nếu dùng Supabase Dashboard thì có thể tạo qua UI)
--- insert into storage.buckets (id, name, public) values ('student_avatars', 'student_avatars', true);
-
 -- Policies for student_avatars bucket
 CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'student_avatars');
 CREATE POLICY "Allow Insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'student_avatars');

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/student_model.dart';
 import '../services/student_service.dart';
@@ -17,7 +17,7 @@ class StudentListNotifier extends AsyncNotifier<List<StudentModel>> {
 
   Future<List<StudentModel>> _fetch() async {
     final service = ref.read(studentServiceProvider);
-    return await service.fetchStudentsWithMajors();
+    return await service.fetchStudentsWithHierarchy();
   }
 
   Future<void> loadStudents() async {
@@ -25,14 +25,14 @@ class StudentListNotifier extends AsyncNotifier<List<StudentModel>> {
     state = await AsyncValue.guard(() => _fetch());
   }
 
-  Future<void> addStudent(StudentModel student, File? imageFile) async {
+  Future<void> addStudent(StudentModel student, Uint8List? fileBytes, String? fileName) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final service = ref.read(studentServiceProvider);
       String? avatarUrl;
       
-      if (imageFile != null) {
-        avatarUrl = await service.uploadAvatar(imageFile, student.studentCode);
+      if (fileBytes != null && fileName != null) {
+        avatarUrl = await service.uploadAvatar(fileBytes, fileName);
       }
       
       final newStudent = student.copyWith(avatarUrl: avatarUrl);
@@ -44,7 +44,8 @@ class StudentListNotifier extends AsyncNotifier<List<StudentModel>> {
 
   Future<void> updateStudent(
     StudentModel student, {
-    File? newImage,
+    Uint8List? newFileBytes,
+    String? newFileName,
     bool deleteOldImage = false,
   }) async {
     state = const AsyncLoading();
@@ -52,15 +53,13 @@ class StudentListNotifier extends AsyncNotifier<List<StudentModel>> {
       final service = ref.read(studentServiceProvider);
       String? updatedAvatarUrl = student.avatarUrl;
 
-      // Xử lý xóa ảnh cũ hoặc thay thế ảnh mới
-      if ((deleteOldImage || newImage != null) && student.avatarUrl != null) {
+      if ((deleteOldImage || newFileBytes != null) && student.avatarUrl != null) {
         await service.deleteAvatar(student.avatarUrl!);
         updatedAvatarUrl = null;
       }
 
-      // Upload ảnh mới nếu có
-      if (newImage != null) {
-        updatedAvatarUrl = await service.uploadAvatar(newImage, student.studentCode);
+      if (newFileBytes != null && newFileName != null) {
+        updatedAvatarUrl = await service.uploadAvatar(newFileBytes, newFileName);
       }
 
       final updatedStudent = student.copyWith(avatarUrl: updatedAvatarUrl);
@@ -76,15 +75,10 @@ class StudentListNotifier extends AsyncNotifier<List<StudentModel>> {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final service = ref.read(studentServiceProvider);
-      
-      // Xóa avatar trong Storage trước
       if (student.avatarUrl != null) {
         await service.deleteAvatar(student.avatarUrl!);
       }
-      
-      // Xóa record trong DB
       await service.deleteStudent(student.id!);
-      
       return _fetch();
     });
   }

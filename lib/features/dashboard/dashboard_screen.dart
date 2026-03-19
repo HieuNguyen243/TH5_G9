@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:go_router/go_router.dart';
 import '../../models/student_model.dart';
 import '../../providers/student_provider.dart';
 import '../../widgets/stat_card.dart';
@@ -33,7 +34,6 @@ class DashboardScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
-                  // ignore: unused_result
                   ref.refresh(studentListProvider);
                 },
                 child: const Text('Thử lại'),
@@ -43,109 +43,108 @@ class DashboardScreen extends ConsumerWidget {
         ),
         data: (students) {
           final stats = _calculateStats(students);
-          final majorDistribution = _calculateMajorDistribution(students);
+          final facultyDistribution = _calculateFacultyDistribution(students);
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Text(
-                  'Tổng Quan',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+          return RefreshIndicator(
+            onRefresh: () => ref.refresh(studentListProvider.future),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tổng Quan',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-
-                // Stat Cards
-                GridView.count(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.8,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    StatCard(
-                      label: 'Tổng SV',
-                      value: stats['totalStudents']!,
-                      icon: Icons.people,
-                      backgroundColor: const Color(0xFF6366F1),
-                    ),
-                    StatCard(
-                      label: 'SV Giỏi',
-                      value: stats['excellentStudents']!,
-                      icon: Icons.star,
-                      backgroundColor: const Color(0xFFF59E0B),
-                    ),
-                    StatCard(
-                      label: 'SV Cảnh Báo',
-                      value: stats['warnedStudents']!,
-                      icon: Icons.warning,
-                      backgroundColor: const Color(0xFFEF4444),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-
-                // Chart Section
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
+                  const SizedBox(height: 20),
+                  GridView.count(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 0.8,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      StatCard(
+                        label: 'Tổng SV',
+                        value: stats['totalStudents']!,
+                        icon: Icons.people,
+                        backgroundColor: const Color(0xFF6366F1),
+                        onTap: () => context.go('/directory', extra: {'filter': 'all'}),
+                      ),
+                      StatCard(
+                        label: 'SV Giỏi',
+                        value: stats['excellentStudents']!,
+                        icon: Icons.star,
+                        backgroundColor: const Color(0xFFF59E0B),
+                        onTap: () => context.go('/directory', extra: {'filter': 'excellent'}),
+                      ),
+                      StatCard(
+                        label: 'SV Cảnh Báo',
+                        value: stats['warnedStudents']!,
+                        icon: Icons.warning,
+                        backgroundColor: const Color(0xFFEF4444),
+                        onTap: () => context.go('/directory', extra: {'filter': 'warned'}),
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Phân bố Sinh viên theo Ngành',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                  const SizedBox(height: 32),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      if (majorDistribution.isEmpty)
-                        SizedBox(
-                          height: 300,
-                          child: Center(
-                            child: Text(
-                              'Không có dữ liệu',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Phân bố Sinh viên theo Khoa',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
-                        )
-                      else
-                        Column(
-                          children: [
-                            SizedBox(
-                              height: 300,
-                              child: PieChart(
-                                PieChartData(
-                                  sections: _generatePieSections(majorDistribution),
-                                  centerSpaceRadius: 60,
-                                  sectionsSpace: 2,
+                        ),
+                        const SizedBox(height: 20),
+                        if (facultyDistribution.isEmpty)
+                          const SizedBox(
+                            height: 300,
+                            child: Center(
+                              child: Text('Không có dữ liệu'),
+                            ),
+                          )
+                        else
+                          Column(
+                            children: [
+                              SizedBox(
+                                height: 300,
+                                child: PieChart(
+                                  key: UniqueKey(), // Fix for web GlobalKey error when hovering
+                                  PieChartData(
+                                    sections: _generatePieSections(facultyDistribution),
+                                    centerSpaceRadius: 60,
+                                    sectionsSpace: 2,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 20),
-                            _buildLegend(majorDistribution, context),
-                          ],
-                        ),
-                    ],
+                              const SizedBox(height: 20),
+                              _buildLegend(facultyDistribution, context),
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -154,35 +153,36 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Map<String, int> _calculateStats(List<StudentModel> students) {
-    final totalStudents = students.length;
-    
-    // Tính toán SV Giỏi: 30% hàng đầu (dựa trên mã học sinh)
-    final excellentCount = (totalStudents * 0.3).ceil();
-    
-    // Tính toán SV Cảnh Báo: 10% hàng cuối
-    final warnedCount = (totalStudents * 0.1).ceil();
+    int excellentStudents = 0;
+    int warnedStudents = 0;
+
+    for (final student in students) {
+      final gpa = student.gpa;
+      if (gpa != null && gpa >= 3.2) {
+        excellentStudents++;
+      }
+      if ((gpa != null && gpa < 1.5) || student.academicStatus == 'Đình chỉ') {
+        warnedStudents++;
+      }
+    }
 
     return {
-      'totalStudents': totalStudents,
-      'excellentStudents': excellentCount,
-      'warnedStudents': warnedCount,
+      'totalStudents': students.length,
+      'excellentStudents': excellentStudents,
+      'warnedStudents': warnedStudents,
     };
   }
 
-  Map<String, int> _calculateMajorDistribution(List<StudentModel> students) {
+  Map<String, int> _calculateFacultyDistribution(List<StudentModel> students) {
     final distribution = <String, int>{};
-
     for (final student in students) {
-      final majorName = student.major?.majorName ?? 'Chưa xác định';
-      distribution[majorName] = (distribution[majorName] ?? 0) + 1;
+      final facultyName = student.studentClass?.major?.faculty?.facultyName ?? 'Chưa xác định';
+      distribution[facultyName] = (distribution[facultyName] ?? 0) + 1;
     }
-
     return distribution;
   }
 
-  List<PieChartSectionData> _generatePieSections(
-    Map<String, int> distribution,
-  ) {
+  List<PieChartSectionData> _generatePieSections(Map<String, int> distribution) {
     final colors = [
       const Color(0xFF6366F1),
       const Color(0xFFF59E0B),
@@ -215,10 +215,7 @@ class DashboardScreen extends ConsumerWidget {
     }).toList();
   }
 
-  Widget _buildLegend(
-    Map<String, int> distribution,
-    BuildContext context,
-  ) {
+  Widget _buildLegend(Map<String, int> distribution, BuildContext context) {
     final colors = [
       const Color(0xFF6366F1),
       const Color(0xFFF59E0B),
@@ -249,9 +246,7 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(width: 8),
             Text(
               '${entry.key} (${entry.value})',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[700],
-              ),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         );

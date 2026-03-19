@@ -1,16 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../models/student_model.dart';
+import '../../providers/student_provider.dart';
+import 'package:intl/intl.dart';
 
-class ProfileDetailScreen extends StatelessWidget {
+class ProfileDetailScreen extends ConsumerWidget {
   final StudentModel student;
 
   const ProfileDetailScreen({super.key, required this.student});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chi tiết Sinh viên'),
+        actions: [
+          if (student.id != 'me' && student.id != 'ADMIN_01') ...[
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                context.go('/directory/student-form', extra: student);
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () {
+                _showDeleteDialog(context, ref);
+              },
+            ),
+          ]
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -18,7 +38,6 @@ class ProfileDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 20),
-            // Avatar
             Hero(
               tag: 'avatar_${student.id}',
               child: CircleAvatar(
@@ -37,8 +56,6 @@ class ProfileDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            
-            // Full Name
             Text(
               student.fullName,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -46,8 +63,6 @@ class ProfileDetailScreen extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 8),
-
-            // Student Code
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -63,8 +78,6 @@ class ProfileDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-
-            // Detailed Information Card
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -84,26 +97,55 @@ class ProfileDetailScreen extends StatelessWidget {
                       value: student.studentCode,
                     ),
                     const Divider(),
+                    // Updated Hierarchy Display
+                    _buildInfoRow(
+                      context,
+                      icon: Icons.business_outlined,
+                      label: 'Khoa',
+                      value: student.studentClass?.major?.faculty?.facultyName ?? 'Chưa xác định',
+                    ),
+                    const Divider(),
                     _buildInfoRow(
                       context,
                       icon: Icons.school_outlined,
                       label: 'Ngành học',
-                      value: student.major?.majorName ?? student.majorId,
-                      // For now, if the major is null, just show the ID
+                      value: student.studentClass?.major?.majorName ?? 'Chưa xác định',
                     ),
                     const Divider(),
-                    // Placeholder for future fields
+                    _buildInfoRow(
+                      context,
+                      icon: Icons.class_outlined,
+                      label: 'Lớp',
+                      value: student.studentClass?.className ?? 'Chưa xác định',
+                    ),
+                    const Divider(),
                     _buildInfoRow(
                       context,
                       icon: Icons.location_on_outlined,
                       label: 'Quê quán',
-                      value: 'Chưa cập nhật', // Can map to real field later
+                      value: student.hometown ?? 'Chưa cập nhật',
+                    ),
+                    const Divider(),
+                    _buildInfoRow(
+                      context,
+                      icon: Icons.cake_outlined,
+                      label: 'Ngày sinh',
+                      value: student.dateOfBirth != null
+                        ? DateFormat('dd/MM/yyyy').format(student.dateOfBirth!)
+                        : 'Chưa cập nhật',
+                    ),
+                    const Divider(),
+                    _buildInfoRow(
+                      context,
+                      icon: Icons.info_outline,
+                      label: 'Tình trạng học tập',
+                      value: student.academicStatus ?? 'Đang học',
                     ),
                     const Divider(),
                     _buildInfoRow(
                       context,
                       icon: Icons.grade_outlined,
-                      label: 'Điểm trung bình',
+                      label: 'Điểm trung bình (GPA)',
                       value: student.gpa?.toStringAsFixed(2) ?? 'Chưa cập nhật',
                     ),
                   ],
@@ -112,6 +154,34 @@ class ProfileDetailScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận xóa'),
+        content: Text('Bạn có chắc chắn muốn xóa sinh viên ${student.fullName}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              ref.read(studentListProvider.notifier).deleteStudent(student);
+              Navigator.pop(context);
+              context.pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đã xóa sinh viên thành công')),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
