@@ -6,6 +6,7 @@ class StudentModel {
   final String fullName;
   final String majorId;
   final String? avatarUrl;
+  final double? gpa;
   final MajorModel? major;
 
   StudentModel({
@@ -14,6 +15,7 @@ class StudentModel {
     required this.fullName,
     required this.majorId,
     this.avatarUrl,
+    this.gpa,
     this.major,
   });
 
@@ -24,6 +26,7 @@ class StudentModel {
       fullName: json['full_name'],
       majorId: json['major_id'],
       avatarUrl: json['avatar_url'],
+      gpa: json['gpa'] != null ? double.tryParse(json['gpa'].toString()) : null,
       major: json['majors'] != null ? MajorModel.fromJson(json['majors']) : null,
     );
   }
@@ -35,6 +38,7 @@ class StudentModel {
       'full_name': fullName,
       'major_id': majorId,
       'avatar_url': avatarUrl,
+      if (gpa != null) 'gpa': gpa,
     };
   }
 
@@ -44,6 +48,7 @@ class StudentModel {
     String? fullName,
     String? majorId,
     String? avatarUrl,
+    double? gpa,
     MajorModel? major,
   }) {
     return StudentModel(
@@ -52,6 +57,7 @@ class StudentModel {
       fullName: fullName ?? this.fullName,
       majorId: majorId ?? this.majorId,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      gpa: gpa ?? this.gpa,
       major: major ?? this.major,
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:async';
 import '../../models/student_model.dart';
 import '../../providers/student_provider.dart';
@@ -19,9 +20,6 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
   // Filter states
   String? _selectedMajor;
   String _selectedGpaOption = 'all'; // 'all', 'gte3.2', 'lt3.2'
-
-  // Filtered results
-  List<StudentModel> _filteredStudents = [];
 
   @override
   void initState() {
@@ -406,17 +404,31 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                   itemCount: filteredStudents.length,
                   itemBuilder: (context, index) {
                     final student = filteredStudents[index];
-                    return StudentListTile(
-                      student: student,
-                      onTap: () {
-                        // Handle student tap - could navigate to detail screen
+                    return Dismissible(
+                      key: Key(student.id ?? student.studentCode),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20.0),
+                        color: Colors.red,
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      onDismissed: (direction) {
+                        // In a real app, call a Provider/Service method to delete
+                        // E.g., ref.read(studentProvider.notifier).deleteStudent(student.id!);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Tapped: ${student.fullName}'),
-                            duration: const Duration(seconds: 1),
+                            content: Text('Đã xóa sinh viên ${student.fullName}'),
+                            backgroundColor: Colors.red,
                           ),
                         );
                       },
+                      child: StudentListTile(
+                        student: student,
+                        onTap: () {
+                          context.go('/directory/student-detail', extra: student);
+                        },
+                      ),
                     );
                   },
                 );
@@ -450,6 +462,12 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          context.go('/directory/student-form');
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }
