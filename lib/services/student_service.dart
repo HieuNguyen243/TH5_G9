@@ -18,7 +18,7 @@ class StudentService {
   Future<void> createStudent(StudentModel student) async {
     await _supabase.from('students').insert(student.toJson());
   }
-
+/// đây la chu thu
   Future<void> updateStudent(StudentModel student) async {
     if (student.id == null) return;
     await _supabase
